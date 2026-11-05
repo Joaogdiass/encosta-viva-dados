@@ -21,7 +21,8 @@ Pipeline da disciplina **Big Data Architecture & Data Integration** (Global Solu
 | **Componente desta entrega** | Airflow, Databricks (Bronze, Prata e Ouro) e tela do MVP |
 | **Fontes de dados** | Open-Meteo e IBGE (reais), sensores, relatos e cadastro (simulados) |
 | **Modelos de IA** | Não usados neste componente: o nível vem de regras explicáveis |
-| **URL do MVP** | PREENCHER após publicar |
+| **URL do MVP** | https://joaogdiass.github.io/gs-bigdata/ |
+| **Repositório** | https://github.com/Joaogdiass/gs-bigdata |
 | **Indicadores de impacto** | Antecedência do alerta, população em setores alertados, sensores offline |
 | **ODS** | 11 (meta 11.5), 13 (meta 13.1), 9, 10 e 3 |
 
@@ -90,7 +91,11 @@ Baixe `/Volumes/workspace/gs/chegada/_mvp/risco_setores.json`, substitua `mvp/da
 py -m http.server 8765 --directory mvp
 ```
 
-A tela fica em http://localhost:8765. Para publicá-la, envie a pasta `mvp/` a um serviço de site estático. O GitHub Pages só publica essa pasta por meio de um workflow do GitHub Actions.
+A tela fica em http://localhost:8765. A versão pública está no GitHub Pages, na branch `gh-pages`. Para atualizá-la, faça commit na `main` e publique a pasta `mvp/`:
+
+```bash
+git subtree push --prefix mvp origin gh-pages
+```
 
 ### Teste local (opcional)
 
