@@ -68,7 +68,7 @@
   <ul id="setores"></ul>
 </main>
 <footer class="suave">
-  <p>Fonte: tabela <code id="origem">fato_risco_setor</code>. Nenhum dado pessoal é exibido nesta tela.</p>
+  <p>Fonte: tabela <code id="origem">fato_risco_setor</code><span id="origem-robo" hidden> e robô de alertas (<code id="origem-robo-tabela"></code>). O nível, os fatores e os números de cada setor vêm do robô quando ele tem o dado mais recente ou reproduz um evento de demonstração. O gráfico de chuva vem sempre da camada Ouro</span>. Nenhum dado pessoal é exibido nesta tela.</p>
 </footer>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -194,6 +194,10 @@ function desenhar(d, origem, robo) {
   document.getElementById("setores").replaceChildren(...ordem.map(cartao));
   document.getElementById("amostra").textContent = d.amostra || "";
   document.getElementById("origem").textContent = d.tabela_origem;
+  if (robo) {
+    document.getElementById("origem-robo-tabela").textContent = robo.tabela_origem;
+    document.getElementById("origem-robo").hidden = false;
+  }
   const ate = robo && robo.gerado_em > d.gerado_ate || robo && robo.modo === "replay" ? robo.gerado_em : d.gerado_ate;
   document.getElementById("status").textContent = `${origem} Dados até ${data(ate)}.`.trim();
 
