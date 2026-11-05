@@ -29,6 +29,12 @@
   dt { color: var(--suave); font-size: .78rem; }
   dd { margin: 0; font-weight: 600; }
   .serie { display: block; width: 100%; height: 36px; margin-top: 8px; }
+  #robo { margin-top: 12px; background: var(--superficie); border: 1px solid var(--borda); border-radius: 8px; padding: 12px 14px; }
+  #robo h2 { margin-bottom: 4px; }
+  #alertas { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
+  #alertas li { border-left: 6px solid var(--cor); padding: 4px 0 4px 10px; }
+  #alertas strong { display: block; }
+  .robo-setor { margin-top: 8px; font-size: .9rem; padding: 6px 10px; border-radius: 6px; background: var(--destaque); }
   button.ver { margin-top: 8px; font: inherit; font-size: .9rem; background: none; border: 1px solid var(--borda); border-radius: 6px; padding: 4px 10px; cursor: pointer; color: inherit; }
   button.ver:focus-visible { outline: 3px solid #1a5fb4; outline-offset: 2px; }
   @media (max-width: 800px) {
@@ -51,6 +57,11 @@
     O nível abaixo é uma sugestão calculada. Quem decide remover moradores é a Defesa Civil.
     <span id="amostra"></span>
   </div>
+  <section id="robo" aria-labelledby="robo-titulo" hidden>
+    <h2 id="robo-titulo">Alertas enviados</h2>
+    <p class="suave" id="robo-status"></p>
+    <ul id="alertas"></ul>
+  </section>
 </header>
 <main>
   <div id="mapa" role="region" aria-label="Mapa dos setores monitorados"></div>
@@ -65,6 +76,7 @@
 const CORES = { 1: "var(--n1)", 2: "var(--n2)", 3: "var(--n3)", 4: "var(--n4)" };
 const CORES_MAPA = { 1: "#2f7d4f", 2: "#a86a00", 3: "#c8481c", 4: "#8f1d2c" };
 const CHAVE = "encosta-viva-ultimo";
+const CHAVE_ROBO = "encosta-viva-robo";
 const marcadores = {};
 
 function ler() { try { return JSON.parse(localStorage.getItem(CHAVE)); } catch { return null; } }
@@ -84,6 +96,61 @@ function serie(pontos) {
   return `<svg class="serie" viewBox="0 0 100 36" preserveAspectRatio="none" role="img" aria-label="Chuva por hora nas últimas 72 horas. Maior valor: ${maior} milímetros.">${barras}</svg>`;
 }
 
+function avisosDoRobo(s) {
+  const avisos = [];
+  if (s.vistoria_aberta) avisos.push("A Defesa Civil recebeu um pedido de vistoria para este setor.");
+  if (s.sensor_status === "offline") avisos.push("O sensor está sem enviar leituras: o nível usa só os dados de chuva.");
+  if (s.dado_desatualizado) avisos.push("Os dados de chuva estão atrasados.");
+  if (s.nivel_mantido) avisos.push("O nível foi mantido até os dados voltarem.");
+  return avisos.join(" ");
+}
+
+// O robô roda a cada 15 min, e a camada Ouro, uma vez por dia: vale o dado mais novo.
+function aplicarRobo(d, r) {
+  if (!r) return;
+  const porSetor = Object.fromEntries((r.setores || []).map(x => [x.setor_id, x]));
+  for (const s of d.setores) {
+    const novo = porSetor[s.setor_id];
+    if (!novo) continue;
+    if (r.modo === "replay" || novo.atualizado_em >= s.atualizado_em) {
+      const { setor_id, ...campos } = novo;
+      Object.assign(s, campos);
+    }
+  }
+}
+
+function desenharRobo(r) {
+  if (!r) return;
+  const lista = document.getElementById("alertas");
+  const comTexto = new Set();
+  const itens = (r.alertas || []).slice(0, 5).map(a => {
+    const li = document.createElement("li");
+    li.style.setProperty("--cor", CORES[a.nivel_ordem]);
+    const titulo = document.createElement("strong");
+    titulo.textContent = a.tipo === "encerramento" ? `${a.setor}: alerta encerrado` : `${a.setor}: ${a.nivel}`;
+    // O texto completo só no alerta mais recente de cada setor, para o mapa continuar à vista.
+    const texto = document.createElement("span");
+    if (!comTexto.has(a.setor_id)) texto.textContent = a.mensagem;
+    comTexto.add(a.setor_id);
+    const detalhe = document.createElement("p");
+    detalhe.className = "suave";
+    const quando = a.enviado_em ? `Enviado em ${data(a.enviado_em)}` : "Envio pendente";
+    const simulado = a.envio_simulado ? " Envio simulado: o cadastro é fictício." : "";
+    detalhe.textContent = `${quando}. ${a.moradores_avisados} de ${a.moradores_total} moradores avisados. Canais: ${a.canal || "nenhum"}.${simulado}`;
+    li.append(titulo, texto, detalhe);
+    return li;
+  });
+  lista.replaceChildren(...itens);
+
+  const horas = (Date.now() - new Date(r.gerado_em).getTime()) / 36e5;
+  const partes = [`Robô de alertas: última execução em ${data(r.gerado_em)}.`];
+  if (r.modo === "replay") partes.push("Demonstração: reprodução de um evento de chuva simulado.");
+  else if (horas > 1) partes.push("O robô está sem atualizar há mais de 1 hora.");
+  if (!itens.length) partes.push("Nenhum alerta enviado.");
+  document.getElementById("robo-status").textContent = partes.join(" ");
+  document.getElementById("robo").hidden = false;
+}
+
 function cartao(s) {
   const li = document.createElement("li");
   li.className = "setor";
@@ -101,7 +168,14 @@ function cartao(s) {
     </dl>
     ${serie(s.serie)}
     <p class="suave">Atualizado em ${data(s.atualizado_em)}. Chuva por hora, últimas 72 h.</p>
+    <p class="robo-setor" hidden></p>
     <button class="ver" type="button">Ver no mapa</button>`;
+  const avisos = avisosDoRobo(s);
+  if (avisos) {
+    const caixa = li.querySelector(".robo-setor");
+    caixa.textContent = avisos;
+    caixa.hidden = false;
+  }
   li.querySelector("h2").textContent = s.nome;
   li.querySelector(".local").textContent = `${s.municipio} · Risco ${s.grau_risco}`;
   li.querySelector(".nivel").textContent = s.nivel_risco;
@@ -113,12 +187,15 @@ function cartao(s) {
   return li;
 }
 
-function desenhar(d, origem) {
+function desenhar(d, origem, robo) {
+  aplicarRobo(d, robo);
+  desenharRobo(robo);
   const ordem = [...d.setores].sort((a, b) => b.nivel_ordem - a.nivel_ordem || a.nome.localeCompare(b.nome));
   document.getElementById("setores").replaceChildren(...ordem.map(cartao));
   document.getElementById("amostra").textContent = d.amostra || "";
   document.getElementById("origem").textContent = d.tabela_origem;
-  document.getElementById("status").textContent = `${origem} Dados até ${data(d.gerado_ate)}.`.trim();
+  const ate = robo && robo.gerado_em > d.gerado_ate || robo && robo.modo === "replay" ? robo.gerado_em : d.gerado_ate;
+  document.getElementById("status").textContent = `${origem} Dados até ${data(ate)}.`.trim();
 
   if (!window.L) return;
   const mapa = L.map("mapa");
@@ -147,16 +224,30 @@ function desenhar(d, origem) {
   new ResizeObserver(() => { if (!mexeu) enquadrar(); }).observe(document.getElementById("mapa"));
 }
 
+// Sem o arquivo do robô, a tela continua funcionando só com a camada Ouro.
+async function carregarRobo() {
+  try {
+    const r = await fetch("dados/alertas.json", { cache: "no-cache" });
+    if (!r.ok) throw new Error(r.status);
+    const dados = await r.json();
+    try { localStorage.setItem(CHAVE_ROBO, JSON.stringify(dados)); } catch {}
+    return dados;
+  } catch {
+    try { return JSON.parse(localStorage.getItem(CHAVE_ROBO)); } catch { return null; }
+  }
+}
+
 async function iniciar() {
+  const robo = await carregarRobo();
   try {
     const r = await fetch("dados/risco_setores.json", { cache: "no-cache" });
     if (!r.ok) throw new Error(r.status);
     const d = await r.json();
     guardar(d);
-    desenhar(d, "");
+    desenhar(d, "", robo);
   } catch (erro) {
     const salvo = ler();
-    if (salvo) desenhar(salvo, "Sem conexão: mostrando os últimos dados salvos.");
+    if (salvo) desenhar(salvo, "Sem conexão: mostrando os últimos dados salvos.", robo);
     else document.getElementById("status").textContent = "Não foi possível carregar os dados agora. Tente de novo em instantes.";
   }
 }

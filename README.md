@@ -91,6 +91,8 @@ Baixe `/Volumes/workspace/gs/chegada/_mvp/risco_setores.json`, substitua `mvp/da
 py -m http.server 8765 --directory mvp
 ```
 
+A tela também lê `mvp/dados/alertas.json`, gravado pelo robô de alertas (componente de Automação). Sem esse arquivo, ela funciona só com a camada Ouro.
+
 A tela fica em http://localhost:8765. A versão pública está no GitHub Pages, na branch `gh-pages`. Para atualizá-la, faça commit na `main` e publique a pasta `mvp/`:
 
 ```bash
