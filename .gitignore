@@ -1,0 +1,9 @@
+.env
+chegada/*
+!chegada/.gitkeep
+logs/
+__pycache__/
+*.pyc
+spark-warehouse/
+metastore_db/
+derby.log

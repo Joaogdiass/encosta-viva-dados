@@ -1,0 +1,3 @@
+{"setor_id": "S01", "nome": "Vila Sahy", "bairro": "Barra do Sahy", "municipio_ibge": "3550704", "grau_risco": "R4", "populacao_estimada": 2800, "lat": -23.774, "lon": -45.694}
+{"setor_id": "S02", "nome": "Morro da Oficina", "bairro": "Alto da Serra", "municipio_ibge": "3303906", "grau_risco": "R4", "populacao_estimada": 1500, "lat": -22.512, "lon": -43.164}
+{"setor_id": "S03", "nome": "Quitandinha", "bairro": "Quitandinha", "municipio_ibge": "3303906", "grau_risco": "R3", "populacao_estimada": 1900, "lat": -22.531, "lon": -43.214}
