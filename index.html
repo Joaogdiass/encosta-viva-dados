@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Encosta Viva</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  :root {
+    --fundo: #f6f4ef; --superficie: #fff; --texto: #1f2421; --suave: #59615c; --borda: #d8d5cc;
+    --n1: #2f7d4f; --n2: #a86a00; --n3: #c8481c; --n4: #8f1d2c; --destaque: #fff4d6;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--fundo); color: var(--texto); font: 16px/1.5 system-ui, "Segoe UI", Roboto, sans-serif; }
+  header, main, footer { max-width: 1100px; margin: 0 auto; padding: 16px; }
+  header { padding-top: 24px; }
+  h1 { margin: 0; font-size: 1.8rem; }
+  h2 { margin: 0; font-size: 1.1rem; }
+  p { margin: 4px 0; }
+  .suave { color: var(--suave); font-size: .9rem; }
+  .aviso { background: var(--destaque); border: 1px solid #e3c878; border-radius: 8px; padding: 10px 12px; margin-top: 12px; font-size: .95rem; }
+  main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+  #mapa { height: 560px; border: 1px solid var(--borda); border-radius: 8px; background: #e5e3dc; position: sticky; top: 12px; }
+  #setores { display: grid; gap: 12px; list-style: none; margin: 0; padding: 0; }
+  .setor { background: var(--superficie); border: 1px solid var(--borda); border-left: 6px solid var(--cor); border-radius: 8px; padding: 12px 14px; }
+  .topo { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; flex-wrap: wrap; }
+  .nivel { background: var(--cor); color: #fff; font-weight: 700; font-size: .85rem; padding: 2px 10px; border-radius: 999px; white-space: nowrap; }
+  dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 10px 0; }
+  dt { color: var(--suave); font-size: .78rem; }
+  dd { margin: 0; font-weight: 600; }
+  .serie { display: block; width: 100%; height: 36px; margin-top: 8px; }
+  button.ver { margin-top: 8px; font: inherit; font-size: .9rem; background: none; border: 1px solid var(--borda); border-radius: 6px; padding: 4px 10px; cursor: pointer; color: inherit; }
+  button.ver:focus-visible { outline: 3px solid #1a5fb4; outline-offset: 2px; }
+  @media (max-width: 800px) {
+    main { grid-template-columns: minmax(0, 1fr); }
+    #mapa { height: 320px; position: static; }
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --fundo: #171a18; --superficie: #212522; --texto: #eef0ec; --suave: #aab2ac; --borda: #3a403c; --destaque: #3b3216; }
+    .aviso { border-color: #6d5c22; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Encosta Viva</h1>
+  <p>Nível de risco de deslizamento por setor, e não por cidade.</p>
+  <p class="suave" id="status" role="status">Carregando dados…</p>
+  <div class="aviso">
+    <strong>Em emergência, ligue 199 (Defesa Civil) ou 193 (Bombeiros).</strong>
+    O nível abaixo é uma sugestão calculada. Quem decide remover moradores é a Defesa Civil.
+    <span id="amostra"></span>
+  </div>
+</header>
+<main>
+  <div id="mapa" role="region" aria-label="Mapa dos setores monitorados"></div>
+  <ul id="setores"></ul>
+</main>
+<footer class="suave">
+  <p>Fonte: tabela <code id="origem">fato_risco_setor</code>. Nenhum dado pessoal é exibido nesta tela.</p>
+</footer>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const CORES = { 1: "var(--n1)", 2: "var(--n2)", 3: "var(--n3)", 4: "var(--n4)" };
+const CORES_MAPA = { 1: "#2f7d4f", 2: "#a86a00", 3: "#c8481c", 4: "#8f1d2c" };
+const CHAVE = "encosta-viva-ultimo";
+const marcadores = {};
+
+function ler() { try { return JSON.parse(localStorage.getItem(CHAVE)); } catch { return null; } }
+function guardar(d) { try { localStorage.setItem(CHAVE, JSON.stringify(d)); } catch {} }
+function data(iso) { return new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }); }
+function num(v, sufixo) { return v === null || v === undefined ? "sem dado" : `${v.toLocaleString("pt-BR")} ${sufixo}`; }
+
+function serie(pontos) {
+  if (!pontos.length) return "";
+  const max = Math.max(5, ...pontos.map(p => p.chuva_1h));
+  const largura = 100 / pontos.length;
+  const barras = pontos.map((p, i) => {
+    const h = (p.chuva_1h / max) * 36;
+    return `<rect x="${(i * largura).toFixed(2)}" y="${(36 - h).toFixed(2)}" width="${largura.toFixed(2)}" height="${h.toFixed(2)}" fill="${CORES_MAPA[p.nivel_ordem]}"/>`;
+  }).join("");
+  const maior = Math.max(...pontos.map(p => p.chuva_1h)).toLocaleString("pt-BR");
+  return `<svg class="serie" viewBox="0 0 100 36" preserveAspectRatio="none" role="img" aria-label="Chuva por hora nas últimas 72 horas. Maior valor: ${maior} milímetros.">${barras}</svg>`;
+}
+
+function cartao(s) {
+  const li = document.createElement("li");
+  li.className = "setor";
+  li.style.setProperty("--cor", CORES[s.nivel_ordem]);
+  li.innerHTML = `
+    <div class="topo">
+      <div><h2></h2><p class="suave local"></p></div>
+      <span class="nivel"></span>
+    </div>
+    <p class="fatores"></p>
+    <dl>
+      <div><dt>Chuva em 72 h</dt><dd>${num(s.chuva_72h, "mm")}</dd></div>
+      <div><dt>Umidade do solo</dt><dd>${num(s.umidade_solo_media, "%")}</dd></div>
+      <div><dt>Previsão em 6 h</dt><dd>${num(s.previsao_6h, "mm")}</dd></div>
+    </dl>
+    ${serie(s.serie)}
+    <p class="suave">Atualizado em ${data(s.atualizado_em)}. Chuva por hora, últimas 72 h.</p>
+    <button class="ver" type="button">Ver no mapa</button>`;
+  li.querySelector("h2").textContent = s.nome;
+  li.querySelector(".local").textContent = `${s.municipio} · Risco ${s.grau_risco}`;
+  li.querySelector(".nivel").textContent = s.nivel_risco;
+  li.querySelector(".fatores").textContent = s.fatores ? `Por quê: ${s.fatores}.` : "Sem fatores de atenção agora.";
+  li.querySelector(".ver").addEventListener("click", () => {
+    const m = marcadores[s.setor_id];
+    if (m) { m.fire("click"); m.openPopup(); m._map.setView(m.getLatLng(), 11); }
+  });
+  return li;
+}
+
+function desenhar(d, origem) {
+  const ordem = [...d.setores].sort((a, b) => b.nivel_ordem - a.nivel_ordem || a.nome.localeCompare(b.nome));
+  document.getElementById("setores").replaceChildren(...ordem.map(cartao));
+  document.getElementById("amostra").textContent = d.amostra || "";
+  document.getElementById("origem").textContent = d.tabela_origem;
+  document.getElementById("status").textContent = `${origem} Dados até ${data(d.gerado_ate)}.`.trim();
+
+  if (!window.L) return;
+  const mapa = L.map("mapa");
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 18, attribution: "&copy; OpenStreetMap"
+  }).addTo(mapa);
+  const pontos = [];
+  for (const s of ordem) {
+    const m = L.circleMarker([s.lat, s.lon], {
+      radius: 8 + s.nivel_ordem * 2, color: "#fff", weight: 2, fillColor: CORES_MAPA[s.nivel_ordem], fillOpacity: .95
+    }).addTo(mapa);
+    const texto = document.createElement("div");
+    const titulo = document.createElement("strong");
+    titulo.textContent = s.nome;
+    texto.append(titulo, document.createElement("br"), s.nivel_risco);
+    m.bindPopup(texto).bindTooltip(`${s.nome}: ${s.nivel_risco}`);
+    marcadores[s.setor_id] = m;
+    pontos.push([s.lat, s.lon]);
+  }
+  const enquadrar = () => { mapa.invalidateSize(); mapa.fitBounds(pontos, { padding: [30, 30], maxZoom: 11 }); };
+  enquadrar();
+  // Reenquadra se o mapa mudar de tamanho, até a pessoa mexer nele.
+  let mexeu = false;
+  mapa.on("dragstart", () => { mexeu = true; });
+  for (const m of Object.values(marcadores)) m.on("click", () => { mexeu = true; });
+  new ResizeObserver(() => { if (!mexeu) enquadrar(); }).observe(document.getElementById("mapa"));
+}
+
+async function iniciar() {
+  try {
+    const r = await fetch("dados/risco_setores.json", { cache: "no-cache" });
+    if (!r.ok) throw new Error(r.status);
+    const d = await r.json();
+    guardar(d);
+    desenhar(d, "");
+  } catch (erro) {
+    const salvo = ler();
+    if (salvo) desenhar(salvo, "Sem conexão: mostrando os últimos dados salvos.");
+    else document.getElementById("status").textContent = "Não foi possível carregar os dados agora. Tente de novo em instantes.";
+  }
+}
+iniciar();
+</script>
+</body>
+</html>
