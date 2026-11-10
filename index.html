@@ -242,7 +242,9 @@ async function carregarRobo() {
 }
 
 async function iniciar() {
-  const robo = await carregarRobo();
+  // ?fonte=ouro mostra só a camada Ouro, sem a demonstração do robô de alertas.
+  const soOuro = new URLSearchParams(location.search).get("fonte") === "ouro";
+  const robo = soOuro ? null : await carregarRobo();
   try {
     const r = await fetch("dados/risco_setores.json", { cache: "no-cache" });
     if (!r.ok) throw new Error(r.status);
