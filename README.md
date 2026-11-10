@@ -22,6 +22,7 @@ Pipeline da disciplina **Big Data Architecture & Data Integration** (Global Solu
 | **Fontes de dados** | Open-Meteo e IBGE (reais), sensores, relatos e cadastro (simulados) |
 | **Modelos de IA** | Não usados neste componente: o nível vem de regras explicáveis |
 | **URL do MVP** | https://joaogdiass.github.io/encosta-viva-dados/ |
+| **URL só com a camada Ouro** | https://joaogdiass.github.io/encosta-viva-dados/?fonte=ouro |
 | **Repositório** | https://github.com/Joaogdiass/encosta-viva-dados |
 | **Indicadores de impacto** | Antecedência do alerta, população em setores alertados, sensores offline |
 | **ODS** | 11 (meta 11.5), 13 (meta 13.1), 9, 10 e 3 |
