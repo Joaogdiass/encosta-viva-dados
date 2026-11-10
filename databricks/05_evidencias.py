@@ -27,6 +27,25 @@ display(spark.sql("""
 # COMMAND ----------
 
 # MAGIC %md
+# MAGIC ## Linhas por tabela e por etapa
+
+# COMMAND ----------
+
+display(spark.sql("""
+    SELECT replace(tabela, 'workspace.gs.bronze_', '') AS tabela,
+           MAX(CASE WHEN etapa = 'lote1' THEN linhas END) AS lote1,
+           MAX(CASE WHEN etapa = 'lote2' THEN linhas END) AS lote2,
+           MAX(CASE WHEN etapa = 'reexecucao' THEN linhas END) AS reexec2,
+           MAX(CASE WHEN etapa = 'lote3' THEN linhas END) AS lote3,
+           MAX(CASE WHEN etapa = 'reexecucao_lote3' THEN linhas END) AS reexec3
+    FROM workspace.gs.controle_contagens
+    GROUP BY tabela
+    ORDER BY tabela
+"""))
+
+# COMMAND ----------
+
+# MAGIC %md
 # MAGIC ## Regras de qualidade da Prata
 
 # COMMAND ----------
@@ -100,4 +119,4 @@ display(spark.sql(consultas[3]))
 
 # COMMAND ----------
 
-display(spark.sql(consultas[4]))
+display(spark.sql(consultas[4]).drop("nome", "fonte_pico"))
