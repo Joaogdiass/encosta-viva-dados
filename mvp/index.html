@@ -250,7 +250,7 @@ async function iniciar() {
     if (!r.ok) throw new Error(r.status);
     const d = await r.json();
     guardar(d);
-    desenhar(d, "", robo);
+    desenhar(d, soOuro ? "Visão só com a camada Ouro." : "", robo);
   } catch (erro) {
     const salvo = ler();
     if (salvo) desenhar(salvo, "Sem conexão: mostrando os últimos dados salvos.", robo);
